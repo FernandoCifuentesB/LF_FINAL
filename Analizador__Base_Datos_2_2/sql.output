@@ -1,0 +1,259 @@
+Grammar
+
+    0 $accept: programa $end
+
+    1 programa: sentencia
+    2         | programa sentencia
+
+    3 $@1: %empty
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    5 asignaciones: asignacion
+    6             | asignaciones TK_COMA asignacion
+
+    7 asignacion: TK_ID TK_IGUAL valor
+
+    8 valor: TK_CADENA
+    9      | TK_ENTERO
+   10      | TK_BOOL
+   11      | TK_ID
+
+
+Terminals, with rules where they appear
+
+    $end (0) 0
+    error (256)
+    TK_INSERTAR (258) 4
+    TK_EN (259) 4
+    TK_TABLA (260) 4
+    TK_VALORES (261) 4
+    TK_FIN (262) 4
+    TK_IGUAL (263) 7
+    TK_COMA (264) 6
+    TK_DOSPUNTOS (265) 4
+    TK_PTOCOMA (266) 4
+    TK_ID <sval> (267) 4 7 11
+    TK_CADENA <sval> (268) 8
+    TK_BOOL <sval> (269) 10
+    TK_ENTERO <ival> (270) 9
+
+
+Nonterminals, with rules where they appear
+
+    $accept (16)
+        on left: 0
+    programa (17)
+        on left: 1 2
+        on right: 0 2
+    sentencia (18)
+        on left: 4
+        on right: 1 2
+    $@1 (19)
+        on left: 3
+        on right: 4
+    asignaciones (20)
+        on left: 5 6
+        on right: 4 6
+    asignacion (21)
+        on left: 7
+        on right: 5 6
+    valor <sval> (22)
+        on left: 8 9 10 11
+        on right: 7
+
+
+State 0
+
+    0 $accept: . programa $end
+
+    TK_INSERTAR  shift, and go to state 1
+
+    programa   go to state 2
+    sentencia  go to state 3
+
+
+State 1
+
+    4 sentencia: TK_INSERTAR . TK_EN TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    TK_EN  shift, and go to state 4
+
+
+State 2
+
+    0 $accept: programa . $end
+    2 programa: programa . sentencia
+
+    $end         shift, and go to state 5
+    TK_INSERTAR  shift, and go to state 1
+
+    sentencia  go to state 6
+
+
+State 3
+
+    1 programa: sentencia .
+
+    $default  reduce using rule 1 (programa)
+
+
+State 4
+
+    4 sentencia: TK_INSERTAR TK_EN . TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    TK_TABLA  shift, and go to state 7
+
+
+State 5
+
+    0 $accept: programa $end .
+
+    $default  accept
+
+
+State 6
+
+    2 programa: programa sentencia .
+
+    $default  reduce using rule 2 (programa)
+
+
+State 7
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA . TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    TK_ID  shift, and go to state 8
+
+
+State 8
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID . $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    $default  reduce using rule 3 ($@1)
+
+    $@1  go to state 9
+
+
+State 9
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 . TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    TK_VALORES  shift, and go to state 10
+
+
+State 10
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 TK_VALORES . TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+
+    TK_DOSPUNTOS  shift, and go to state 11
+
+
+State 11
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS . asignaciones TK_FIN TK_PTOCOMA
+
+    TK_ID  shift, and go to state 12
+
+    asignaciones  go to state 13
+    asignacion    go to state 14
+
+
+State 12
+
+    7 asignacion: TK_ID . TK_IGUAL valor
+
+    TK_IGUAL  shift, and go to state 15
+
+
+State 13
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones . TK_FIN TK_PTOCOMA
+    6 asignaciones: asignaciones . TK_COMA asignacion
+
+    TK_FIN   shift, and go to state 16
+    TK_COMA  shift, and go to state 17
+
+
+State 14
+
+    5 asignaciones: asignacion .
+
+    $default  reduce using rule 5 (asignaciones)
+
+
+State 15
+
+    7 asignacion: TK_ID TK_IGUAL . valor
+
+    TK_ID      shift, and go to state 18
+    TK_CADENA  shift, and go to state 19
+    TK_BOOL    shift, and go to state 20
+    TK_ENTERO  shift, and go to state 21
+
+    valor  go to state 22
+
+
+State 16
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN . TK_PTOCOMA
+
+    TK_PTOCOMA  shift, and go to state 23
+
+
+State 17
+
+    6 asignaciones: asignaciones TK_COMA . asignacion
+
+    TK_ID  shift, and go to state 12
+
+    asignacion  go to state 24
+
+
+State 18
+
+   11 valor: TK_ID .
+
+    $default  reduce using rule 11 (valor)
+
+
+State 19
+
+    8 valor: TK_CADENA .
+
+    $default  reduce using rule 8 (valor)
+
+
+State 20
+
+   10 valor: TK_BOOL .
+
+    $default  reduce using rule 10 (valor)
+
+
+State 21
+
+    9 valor: TK_ENTERO .
+
+    $default  reduce using rule 9 (valor)
+
+
+State 22
+
+    7 asignacion: TK_ID TK_IGUAL valor .
+
+    $default  reduce using rule 7 (asignacion)
+
+
+State 23
+
+    4 sentencia: TK_INSERTAR TK_EN TK_TABLA TK_ID $@1 TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA .
+
+    $default  reduce using rule 4 (sentencia)
+
+
+State 24
+
+    6 asignaciones: asignaciones TK_COMA asignacion .
+
+    $default  reduce using rule 6 (asignaciones)
