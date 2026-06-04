@@ -1355,7 +1355,7 @@ Los fragmentos seleccionados del archivo `.l` y del archivo `.y` son pertinentes
 
 
 
-# Tabla 11: Código Flex y Bison para el analizador SQL simplificado
+# Código Flex y Bison para el analizador SQL simplificado
 
 ## 12. Descripción general del analizador SQL simplificado
 
