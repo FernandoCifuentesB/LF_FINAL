@@ -1362,3 +1362,1111 @@ El archivo `acceso.l` se encarga de identificar las unidades básicas del lengua
 El archivo `acceso.y` se encarga de validar que esas unidades aparezcan en un orden correcto, formando reglas válidas. Además, incorpora acciones semánticas para detectar errores de tipo, como comparar `hour` con una cadena en lugar de un número.
 
 Gracias a esta arquitectura, el analizador puede procesar múltiples reglas, reportar errores por línea, continuar después de encontrar errores y generar un resumen final con la cantidad de reglas válidas e inválidas.
+
+---
+
+# Tabla 11: Código Flex y Bison para el analizador SQL simplificado
+
+## 12. Descripción general del analizador SQL simplificado
+
+Además del analizador de reglas de acceso, el repositorio contiene un segundo módulo llamado:
+
+```txt
+Analizador__Base_Datos_2_2/
+```
+
+Este módulo implementa un **analizador SQL simplificado** usando Flex y Bison. Su objetivo es reconocer una sintaxis propia para insertar datos en una base de datos SQLite.
+
+La estructura general de una sentencia válida es:
+
+```txt
+insertar en tabla <nombre_tabla> valores: <campo>=<valor>, <campo>=<valor> fin;
+```
+
+Ejemplo:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+```
+
+Esta instrucción no es SQL estándar escrito directamente, sino una forma simplificada que el analizador convierte internamente en una sentencia SQL real:
+
+```sql
+INSERT INTO empleados (nombre,cargo,salario) VALUES ('Ana','Dev',3000);
+```
+
+Los archivos principales de este módulo son:
+
+```txt
+Analizador__Base_Datos_2_2/
+├── sql.l
+├── sql.y
+├── consultas.txt
+├── Makefile
+├── sqlite3.c
+├── sqlite3.h
+└── bd_sql.db
+```
+
+| Archivo | Función |
+|---|---|
+| `sql.l` | Define el analizador léxico en Flex. Reconoce palabras clave, identificadores, cadenas, enteros, booleanos y símbolos. |
+| `sql.y` | Define el analizador sintáctico en Bison. Valida la estructura de las sentencias y ejecuta inserciones en SQLite. |
+| `consultas.txt` | Contiene ejemplos de sentencias para probar el analizador. |
+| `sqlite3.c` y `sqlite3.h` | Permiten integrar SQLite directamente al programa en C. |
+| `Makefile` | Automatiza la generación y compilación del analizador. |
+
+---
+
+## 12.1 Flujo de funcionamiento del analizador SQL
+
+El funcionamiento general es el siguiente:
+
+```txt
+consultas.txt o entrada por consola
+        │
+        ▼
+sql.l  →  Flex reconoce tokens SQL simplificados
+        │
+        ▼
+Tokens: TK_INSERTAR, TK_EN, TK_TABLA, TK_ID, TK_VALORES, etc.
+        │
+        ▼
+sql.y  →  Bison valida la gramática de inserción
+        │
+        ▼
+Se construyen buffers de campos y valores
+        │
+        ▼
+Se genera una sentencia INSERT INTO real
+        │
+        ▼
+SQLite ejecuta la inserción en bd_sql.db
+```
+
+La separación entre Flex y Bison permite que el programa tenga una arquitectura clara:
+
+- Flex reconoce las piezas mínimas del lenguaje.
+- Bison valida que esas piezas estén en el orden correcto.
+- Las acciones semánticas de Bison construyen la sentencia SQL real.
+- SQLite ejecuta la operación sobre la base de datos.
+
+---
+
+## 12.2 Fragmento del archivo `sql.l` — Analizador léxico con Flex
+
+El archivo `sql.l` contiene las reglas léxicas del lenguaje SQL simplificado. Su función es reconocer palabras como `insertar`, `tabla`, `valores`, identificadores, cadenas, números y símbolos de puntuación.
+
+A continuación se muestra un fragmento representativo del archivo Flex con comentarios explicativos:
+
+```c
+%{
+/*
+ * sql.tab.h es generado automáticamente por Bison.
+ * Contiene las constantes de tokens como TK_INSERTAR, TK_ID,
+ * TK_ENTERO y la definición del tipo semántico YYSTYPE.
+ */
+#include "sql.tab.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+/*
+ * num_linea y num_col permiten reportar errores léxicos
+ * indicando la posición aproximada del problema.
+ */
+int num_linea = 1;
+int num_col = 1;
+
+/*
+ * Macro para avanzar la columna según la longitud
+ * del texto reconocido por Flex.
+ */
+#define AVANZAR_COL (num_col += (int)yyleng)
+%}
+
+%option noyywrap
+%option yylineno
+
+/*
+ * Macros léxicas reutilizables.
+ * DIGITO reconoce números.
+ * LETRA reconoce letras y guion bajo.
+ * IDENT reconoce nombres de tablas o campos.
+ */
+DIGITO [0-9]
+LETRA  [a-zA-Z_]
+IDENT  {LETRA}({LETRA}|{DIGITO})*
+
+%%
+```
+
+### Explicación del fragmento
+
+La primera sección, encerrada entre `%{` y `%}`, contiene código C que será copiado al archivo generado por Flex. Allí se incluyen las librerías necesarias y el archivo `sql.tab.h`, que permite conectar el lexer con el parser de Bison.
+
+La macro:
+
+```c
+#define AVANZAR_COL (num_col += (int)yyleng)
+```
+
+actualiza la columna cada vez que Flex reconoce un token. Esto permite mostrar errores más claros.
+
+Las macros:
+
+```c
+DIGITO [0-9]
+LETRA  [a-zA-Z_]
+IDENT  {LETRA}({LETRA}|{DIGITO})*
+```
+
+definen patrones reutilizables. Por ejemplo:
+
+| Macro | Reconoce | Ejemplo |
+|---|---|---|
+| `DIGITO` | Un dígito del 0 al 9. | `7` |
+| `LETRA` | Una letra o guion bajo. | `a`, `Z`, `_` |
+| `IDENT` | Identificadores de tabla o campo. | `empleados`, `salario`, `activo` |
+
+---
+
+## 12.3 Reglas léxicas para tokens SQL
+
+El siguiente fragmento muestra las reglas principales del archivo `sql.l`:
+
+```c
+/*
+ * Palabras clave del lenguaje SQL simplificado.
+ * Se ubican antes de IDENT para evitar que Flex las clasifique
+ * como identificadores normales.
+ */
+"insertar" {
+    AVANZAR_COL;
+    return TK_INSERTAR;
+}
+
+"en" {
+    AVANZAR_COL;
+    return TK_EN;
+}
+
+"tabla" {
+    AVANZAR_COL;
+    return TK_TABLA;
+}
+
+"valores" {
+    AVANZAR_COL;
+    return TK_VALORES;
+}
+
+"fin" {
+    AVANZAR_COL;
+    return TK_FIN;
+}
+
+/*
+ * Literales booleanos.
+ * Se transforman en TK_BOOL y luego Bison los convierte
+ * a 1 o 0 para SQLite.
+ */
+"true"|"false" {
+    AVANZAR_COL;
+    yylval.sval = strdup(yytext);
+    return TK_BOOL;
+}
+
+/*
+ * Identificadores para nombres de tablas y campos.
+ */
+{IDENT} {
+    AVANZAR_COL;
+    yylval.sval = strdup(yytext);
+    return TK_ID;
+}
+
+/*
+ * Cadenas entre comillas simples.
+ * Ejemplo: 'Ana', 'Producto A', 'Cliente 01'.
+ */
+'[^'\n]*' {
+    AVANZAR_COL;
+    yylval.sval = strdup(yytext);
+    return TK_CADENA;
+}
+
+/*
+ * Números enteros.
+ * Se convierten a int y se guardan en yylval.ival.
+ */
+{DIGITO}+ {
+    AVANZAR_COL;
+    yylval.ival = atoi(yytext);
+    return TK_ENTERO;
+}
+
+/*
+ * Símbolos estructurales de la sentencia.
+ */
+"=" { AVANZAR_COL; return TK_IGUAL; }
+"," { AVANZAR_COL; return TK_COMA; }
+":" { AVANZAR_COL; return TK_DOSPUNTOS; }
+";" { AVANZAR_COL; return TK_PTOCOMA; }
+
+/*
+ * Espacios y saltos de línea.
+ * Los espacios se descartan y los saltos actualizan línea/columna.
+ */
+[ \t\r]+ {
+    AVANZAR_COL;
+}
+
+\n {
+    num_linea++;
+    num_col = 1;
+}
+
+/*
+ * Comentarios de línea tipo SQL.
+ */
+"--"[^\n]* {
+    AVANZAR_COL;
+}
+
+/*
+ * Cualquier carácter no reconocido se reporta como error léxico.
+ */
+. {
+    fprintf(stderr,
+            "[ERROR LÉXICO] Línea %d, col %d: carácter no reconocido '%s'\n",
+            num_linea,
+            num_col,
+            yytext);
+    AVANZAR_COL;
+}
+%%
+```
+
+---
+
+## 12.4 Explicación de las reglas léxicas SQL
+
+### Palabras clave
+
+```c
+"insertar" { return TK_INSERTAR; }
+"en"       { return TK_EN; }
+"tabla"    { return TK_TABLA; }
+"valores"  { return TK_VALORES; }
+"fin"      { return TK_FIN; }
+```
+
+Estas reglas reconocen la estructura fija del lenguaje simplificado:
+
+```txt
+insertar en tabla empleados valores: ...
+```
+
+Cada palabra clave tiene un token propio para que Bison pueda validar la secuencia correcta.
+
+La sentencia debe iniciar con:
+
+```txt
+insertar en tabla
+```
+
+y debe cerrar con:
+
+```txt
+fin;
+```
+
+---
+
+### Identificadores
+
+```c
+{IDENT} {
+    yylval.sval = strdup(yytext);
+    return TK_ID;
+}
+```
+
+Los identificadores representan nombres de tablas y campos.
+
+Ejemplos:
+
+```txt
+empleados
+productos
+pedidos
+nombre
+cargo
+salario
+```
+
+Cuando Flex reconoce un identificador, copia su texto en `yylval.sval`. Esto permite que Bison use ese nombre para construir la sentencia SQL final.
+
+Por ejemplo, en:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana' fin;
+```
+
+el identificador `empleados` se usa como nombre de tabla, y `nombre` se usa como campo.
+
+---
+
+### Cadenas
+
+```c
+'[^'\n]*' {
+    yylval.sval = strdup(yytext);
+    return TK_CADENA;
+}
+```
+
+Esta regla reconoce cadenas entre comillas simples.
+
+Ejemplos:
+
+```txt
+'Ana'
+'Desarrollador'
+'Producto A'
+```
+
+La cadena se conserva con las comillas simples, porque SQLite acepta ese formato en una sentencia `INSERT`.
+
+---
+
+### Enteros
+
+```c
+{DIGITO}+ {
+    yylval.ival = atoi(yytext);
+    return TK_ENTERO;
+}
+```
+
+Esta regla reconoce valores numéricos enteros, como:
+
+```txt
+3000
+10
+1
+0
+```
+
+Flex convierte el texto a entero usando `atoi`. Después, Bison lo transforma nuevamente a texto para construir el `INSERT`.
+
+---
+
+### Booleanos
+
+```c
+"true"|"false" {
+    yylval.sval = strdup(yytext);
+    return TK_BOOL;
+}
+```
+
+El lexer reconoce los valores booleanos `true` y `false`. Luego, en Bison, se convierten a:
+
+| Valor reconocido | Valor insertado en SQLite |
+|---|---|
+| `true` | `1` |
+| `false` | `0` |
+
+Esto se hace porque SQLite suele representar booleanos mediante enteros.
+
+---
+
+### Símbolos de puntuación
+
+```c
+"=" { return TK_IGUAL; }
+"," { return TK_COMA; }
+":" { return TK_DOSPUNTOS; }
+";" { return TK_PTOCOMA; }
+```
+
+Estos símbolos cumplen una función estructural:
+
+| Símbolo | Token | Uso |
+|---|---|---|
+| `=` | `TK_IGUAL` | Asigna un valor a un campo. |
+| `,` | `TK_COMA` | Separa varias asignaciones. |
+| `:` | `TK_DOSPUNTOS` | Marca el inicio de la lista de valores. |
+| `;` | `TK_PTOCOMA` | Finaliza la sentencia. |
+
+Ejemplo:
+
+```txt
+valores: nombre='Ana', salario=3000 fin;
+```
+
+---
+
+## 12.5 Fragmento del archivo `sql.y` — Analizador sintáctico con Bison
+
+El archivo `sql.y` contiene la gramática del lenguaje SQL simplificado. Bison usa esta gramática para verificar que los tokens enviados por Flex formen sentencias válidas.
+
+A continuación se muestra un fragmento representativo:
+
+```c
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "sqlite3.h"
+
+/*
+ * Funciones externas y variables compartidas con Flex.
+ */
+void yyerror(const char *s);
+extern int yylex(void);
+extern int num_linea;
+
+/*
+ * Conexión global a SQLite.
+ */
+static sqlite3 *db = NULL;
+
+/*
+ * Buffers para construir la sentencia INSERT.
+ */
+static char tabla_actual[64];
+static char campos_buf[1024];
+static char valores_buf[1024];
+
+static void ejecutar_insert(const char *tabla,
+                            const char *campos,
+                            const char *valores);
+
+static void inicializar_bd(void);
+%}
+
+/*
+ * Unión semántica:
+ * sval se usa para cadenas e identificadores.
+ * ival se usa para números enteros.
+ */
+%union {
+    char *sval;
+    int ival;
+}
+
+/*
+ * Declaración de tokens enviados por Flex.
+ */
+%token TK_INSERTAR
+%token TK_EN
+%token TK_TABLA
+%token TK_VALORES
+%token TK_FIN
+
+%token TK_IGUAL
+%token TK_COMA
+%token TK_DOSPUNTOS
+%token TK_PTOCOMA
+
+%token <sval> TK_ID
+%token <sval> TK_CADENA
+%token <sval> TK_BOOL
+%token <ival> TK_ENTERO
+
+/*
+ * El no terminal valor devuelve una cadena lista
+ * para ser usada en el INSERT.
+ */
+%type <sval> valor
+
+%%
+```
+
+---
+
+## 12.6 Explicación de las declaraciones de Bison
+
+### Inclusión de SQLite
+
+```c
+#include "sqlite3.h"
+```
+
+El analizador no solo valida la sintaxis, también ejecuta la inserción en una base de datos real. Por eso incluye la API de SQLite.
+
+---
+
+### Buffers de construcción SQL
+
+```c
+static char tabla_actual[64];
+static char campos_buf[1024];
+static char valores_buf[1024];
+```
+
+Estos buffers almacenan temporalmente las partes de la sentencia SQL:
+
+| Buffer | Contenido | Ejemplo |
+|---|---|---|
+| `tabla_actual` | Nombre de la tabla destino. | `empleados` |
+| `campos_buf` | Lista de campos separados por coma. | `nombre,cargo,salario` |
+| `valores_buf` | Lista de valores separados por coma. | `'Ana','Dev',3000` |
+
+Al final, estos elementos se unen para formar:
+
+```sql
+INSERT INTO empleados (nombre,cargo,salario) VALUES ('Ana','Dev',3000);
+```
+
+---
+
+### Unión semántica
+
+```c
+%union {
+    char *sval;
+    int ival;
+}
+```
+
+La unión semántica indica qué tipos de datos pueden transportar los tokens:
+
+| Campo | Tipo | Uso |
+|---|---|---|
+| `sval` | `char *` | Identificadores, cadenas y booleanos. |
+| `ival` | `int` | Enteros. |
+
+Por eso los tokens se declaran así:
+
+```c
+%token <sval> TK_ID
+%token <sval> TK_CADENA
+%token <sval> TK_BOOL
+%token <ival> TK_ENTERO
+```
+
+---
+
+## 12.7 Producciones gramaticales del analizador SQL
+
+El núcleo del archivo `sql.y` está en las reglas gramaticales:
+
+```c
+programa
+    : sentencia {
+          /*
+           * Caso base: el archivo contiene una sola sentencia.
+           */
+      }
+    | programa sentencia {
+          /*
+           * Permite procesar varias sentencias consecutivas.
+           */
+      }
+    ;
+
+sentencia
+    : TK_INSERTAR TK_EN TK_TABLA TK_ID {
+          /*
+           * Acción intermedia:
+           * Se captura el nombre de la tabla y se limpian
+           * los buffers antes de leer las asignaciones.
+           */
+          strncpy(tabla_actual, $4, sizeof(tabla_actual) - 1);
+          tabla_actual[sizeof(tabla_actual) - 1] = '\0';
+
+          campos_buf[0] = '\0';
+          valores_buf[0] = '\0';
+
+          free($4);
+      }
+      TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA {
+          /*
+           * Acción final:
+           * Cuando la sentencia completa es válida, se ejecuta
+           * el INSERT construido con la tabla, campos y valores.
+           */
+          ejecutar_insert(tabla_actual, campos_buf, valores_buf);
+
+          printf("[OK] Inserción ejecutada en tabla '%s'\n",
+                 tabla_actual);
+      }
+    ;
+
+asignaciones
+    : asignacion {
+          /*
+           * Primera asignación de la lista.
+           */
+      }
+    | asignaciones TK_COMA asignacion {
+          /*
+           * Permite más asignaciones separadas por coma.
+           */
+      }
+    ;
+
+asignacion
+    : TK_ID TK_IGUAL valor {
+          /*
+           * Se agrega el nombre del campo al buffer campos_buf.
+           */
+          if (campos_buf[0] != '\0') {
+              strncat(campos_buf, ",",
+                      sizeof(campos_buf) - strlen(campos_buf) - 1);
+          }
+
+          strncat(campos_buf, $1,
+                  sizeof(campos_buf) - strlen(campos_buf) - 1);
+
+          /*
+           * Se agrega el valor al buffer valores_buf.
+           */
+          if (valores_buf[0] != '\0') {
+              strncat(valores_buf, ",",
+                      sizeof(valores_buf) - strlen(valores_buf) - 1);
+          }
+
+          strncat(valores_buf, $3,
+                  sizeof(valores_buf) - strlen(valores_buf) - 1);
+
+          free($1);
+          free($3);
+      }
+    ;
+
+valor
+    : TK_CADENA {
+          /*
+           * Las cadenas llegan desde Flex con comillas simples.
+           */
+          $$ = $1;
+      }
+    | TK_ENTERO {
+          /*
+           * El entero se convierte a texto para construir el SQL.
+           */
+          char *buf = malloc(16);
+
+          if (buf == NULL) {
+              yyerror("sin memoria");
+              exit(1);
+          }
+
+          snprintf(buf, 16, "%d", $1);
+          $$ = buf;
+      }
+    | TK_BOOL {
+          /*
+           * SQLite representa booleanos como 1 o 0.
+           */
+          if (strcmp($1, "true") == 0) {
+              $$ = strdup("1");
+          } else {
+              $$ = strdup("0");
+          }
+
+          free($1);
+      }
+    | TK_ID {
+          /*
+           * Permite usar identificadores como valores simbólicos.
+           */
+          $$ = $1;
+      }
+    ;
+```
+
+---
+
+## 12.8 Explicación de las producciones gramaticales
+
+### Producción `programa`
+
+```c
+programa
+    : sentencia
+    | programa sentencia
+    ;
+```
+
+Esta producción permite que el archivo de entrada tenga una o varias sentencias.
+
+Ejemplo con una sentencia:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+```
+
+Ejemplo con varias sentencias:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+insertar en tabla productos valores: nombre='Mouse', precio=80000, activo=true fin;
+```
+
+La recursión permite procesar cada sentencia una tras otra.
+
+---
+
+### Producción `sentencia`
+
+```c
+sentencia
+    : TK_INSERTAR TK_EN TK_TABLA TK_ID
+      TK_VALORES TK_DOSPUNTOS asignaciones TK_FIN TK_PTOCOMA
+    ;
+```
+
+Esta es la producción más importante del analizador SQL.
+
+Define que toda sentencia válida debe seguir exactamente esta estructura:
+
+```txt
+insertar en tabla <tabla> valores: <asignaciones> fin;
+```
+
+Por ejemplo:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+```
+
+se interpreta así:
+
+| Parte de la entrada | Token o producción |
+|---|---|
+| `insertar` | `TK_INSERTAR` |
+| `en` | `TK_EN` |
+| `tabla` | `TK_TABLA` |
+| `empleados` | `TK_ID` |
+| `valores` | `TK_VALORES` |
+| `:` | `TK_DOSPUNTOS` |
+| `nombre='Ana', cargo='Dev', salario=3000` | `asignaciones` |
+| `fin` | `TK_FIN` |
+| `;` | `TK_PTOCOMA` |
+
+---
+
+### Acción intermedia de `sentencia`
+
+```c
+strncpy(tabla_actual, $4, sizeof(tabla_actual) - 1);
+tabla_actual[sizeof(tabla_actual) - 1] = '\0';
+
+campos_buf[0] = '\0';
+valores_buf[0] = '\0';
+
+free($4);
+```
+
+Esta acción se ejecuta justo después de reconocer el nombre de la tabla.
+
+Su función es:
+
+1. Guardar el nombre de la tabla en `tabla_actual`.
+2. Limpiar los buffers de campos y valores.
+3. Liberar la memoria reservada para el identificador.
+
+Por ejemplo, si la entrada es:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana' fin;
+```
+
+entonces:
+
+```c
+tabla_actual = "empleados";
+```
+
+---
+
+### Producción `asignaciones`
+
+```c
+asignaciones
+    : asignacion
+    | asignaciones TK_COMA asignacion
+    ;
+```
+
+Esta producción permite una o muchas asignaciones separadas por coma.
+
+Ejemplo con una asignación:
+
+```txt
+nombre='Ana'
+```
+
+Ejemplo con varias asignaciones:
+
+```txt
+nombre='Ana', cargo='Dev', salario=3000
+```
+
+La forma recursiva permite construir listas de campos y valores de izquierda a derecha.
+
+---
+
+### Producción `asignacion`
+
+```c
+asignacion
+    : TK_ID TK_IGUAL valor
+    ;
+```
+
+Esta producción representa un par:
+
+```txt
+campo = valor
+```
+
+Ejemplos válidos:
+
+```txt
+nombre='Ana'
+salario=3000
+activo=true
+producto='Mouse'
+```
+
+La acción semántica de esta producción acumula los campos y valores en buffers separados.
+
+Por ejemplo, al leer:
+
+```txt
+nombre='Ana', cargo='Dev', salario=3000
+```
+
+se obtiene:
+
+```txt
+campos_buf  = nombre,cargo,salario
+valores_buf = 'Ana','Dev',3000
+```
+
+---
+
+### Producción `valor`
+
+```c
+valor
+    : TK_CADENA
+    | TK_ENTERO
+    | TK_BOOL
+    | TK_ID
+    ;
+```
+
+Esta producción define los tipos de valores aceptados:
+
+| Entrada | Token | Resultado usado en SQL |
+|---|---|---|
+| `'Ana'` | `TK_CADENA` | `'Ana'` |
+| `3000` | `TK_ENTERO` | `3000` |
+| `true` | `TK_BOOL` | `1` |
+| `false` | `TK_BOOL` | `0` |
+| `activo` | `TK_ID` | `activo` |
+
+Esta producción es importante porque unifica distintos tipos de valores y los convierte en texto listo para incluir en la sentencia SQL final.
+
+---
+
+## 12.9 Construcción y ejecución del INSERT
+
+Después de que Bison valida una sentencia completa, se llama a la función:
+
+```c
+ejecutar_insert(tabla_actual, campos_buf, valores_buf);
+```
+
+La función construye una sentencia SQL nativa:
+
+```c
+snprintf(sql,
+         sizeof(sql),
+         "INSERT INTO %s (%s) VALUES (%s);",
+         tabla,
+         campos,
+         valores);
+```
+
+Ejemplo de entrada simplificada:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+```
+
+Valores acumulados:
+
+```txt
+tabla_actual = empleados
+campos_buf   = nombre,cargo,salario
+valores_buf  = 'Ana','Dev',3000
+```
+
+SQL generado:
+
+```sql
+INSERT INTO empleados (nombre,cargo,salario) VALUES ('Ana','Dev',3000);
+```
+
+Luego SQLite ejecuta la sentencia mediante:
+
+```c
+sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+```
+
+Si la inserción es correcta, el programa muestra un mensaje de éxito. Si falla, por ejemplo porque el campo no existe o la tabla no existe, muestra un error de base de datos.
+
+---
+
+## 12.10 Tablas creadas por el analizador
+
+El archivo `sql.y` incluye una función llamada `inicializar_bd()`. Esta función abre o crea la base de datos `bd_sql.db` y crea tres tablas si todavía no existen:
+
+```sql
+CREATE TABLE IF NOT EXISTS empleados (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    cargo TEXT NOT NULL,
+    salario INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS productos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    precio INTEGER NOT NULL,
+    activo INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cliente TEXT NOT NULL,
+    producto TEXT NOT NULL,
+    cantidad INTEGER NOT NULL
+);
+```
+
+Estas tablas permiten probar el analizador con sentencias de inserción sobre empleados, productos y pedidos.
+
+---
+
+## 12.11 Ejemplos de sentencias válidas
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+insertar en tabla productos valores: nombre='Mouse', precio=80000, activo=true fin;
+insertar en tabla pedidos valores: cliente='Carlos', producto='Teclado', cantidad=2 fin;
+```
+
+Estas sentencias son válidas porque cumplen la estructura:
+
+```txt
+insertar en tabla <tabla> valores: <campo>=<valor>, ... fin;
+```
+
+Además, usan valores compatibles con las tablas creadas en SQLite.
+
+---
+
+## 12.12 Ejemplos de sentencias inválidas
+
+```txt
+insertar tabla empleados valores: nombre='Ana' fin;
+insertar en tabla empleados nombre='Ana' fin;
+insertar en tabla empleados valores nombre='Ana' fin;
+insertar en tabla empleados valores: nombre='Ana', fin;
+insertar en tabla empleados valores: salario= fin;
+insertar en tabla empleados valores: nombre='Ana' fin
+```
+
+### Explicación de errores
+
+| Sentencia | Motivo |
+|---|---|
+| `insertar tabla empleados valores: nombre='Ana' fin;` | Falta la palabra `en`. |
+| `insertar en tabla empleados nombre='Ana' fin;` | Falta la palabra `valores` y los dos puntos. |
+| `insertar en tabla empleados valores nombre='Ana' fin;` | Falta `:` después de `valores`. |
+| `insertar en tabla empleados valores: nombre='Ana', fin;` | La coma exige otra asignación después. |
+| `insertar en tabla empleados valores: salario= fin;` | Falta un valor después de `=`. |
+| `insertar en tabla empleados valores: nombre='Ana' fin` | Falta el punto y coma final. |
+
+---
+
+## 12.13 Compilación del analizador SQL
+
+El módulo puede compilarse usando Flex, Bison y GCC.
+
+El flujo de compilación es:
+
+```txt
+sql.y   →  Bison  →  sql.tab.c y sql.tab.h
+sql.l   →  Flex   →  lex.yy.c
+C + SQLite → GCC → sql.exe
+```
+
+Comandos usados comúnmente en Windows con WinFlexBison:
+
+```powershell
+win_bison -d -v sql.y
+win_flex sql.l
+gcc -std=c99 -Wall -Wno-unused-function -o sql.exe lex.yy.c sql.tab.c sqlite3.c -lm
+```
+
+Luego se puede ejecutar el analizador con:
+
+```powershell
+.\sql.exe < consultas.txt
+```
+
+También se puede escribir una sentencia manualmente al ejecutar:
+
+```powershell
+.\sql.exe
+```
+
+---
+
+## 12.14 Importancia del código Flex y Bison en el analizador SQL
+
+| Archivo | Fragmento | Importancia |
+|---|---|---|
+| `sql.l` | Palabras clave | Reconoce `insertar`, `en`, `tabla`, `valores` y `fin`. |
+| `sql.l` | Identificadores | Permite capturar nombres de tablas y campos. |
+| `sql.l` | Literales | Reconoce cadenas, enteros y booleanos. |
+| `sql.l` | Símbolos | Reconoce `=`, `,`, `:` y `;`. |
+| `sql.l` | Manejo de errores | Reporta caracteres no reconocidos con línea y columna. |
+| `sql.y` | Tokens | Declara los símbolos que espera recibir desde Flex. |
+| `sql.y` | Producción `sentencia` | Define la estructura completa de una inserción. |
+| `sql.y` | Producción `asignaciones` | Permite uno o varios pares campo-valor. |
+| `sql.y` | Producción `valor` | Acepta cadenas, enteros, booleanos e identificadores. |
+| `sql.y` | Acciones semánticas | Construyen y ejecutan el `INSERT INTO` real. |
+
+---
+
+## 12.15 Conclusión de la Tabla 11
+
+El analizador SQL simplificado demuestra cómo Flex y Bison pueden usarse no solo para validar sintaxis, sino también para ejecutar acciones útiles sobre una base de datos.
+
+Flex se encarga de reconocer las unidades básicas del lenguaje, como palabras clave, identificadores, números y cadenas. Bison se encarga de validar que esas unidades formen una sentencia correcta de inserción.
+
+La parte más importante del diseño está en las acciones semánticas de Bison, porque allí se capturan la tabla, los campos y los valores para construir dinámicamente una sentencia SQL real. De esta manera, una instrucción simplificada como:
+
+```txt
+insertar en tabla empleados valores: nombre='Ana', cargo='Dev', salario=3000 fin;
+```
+
+termina transformándose en:
+
+```sql
+INSERT INTO empleados (nombre,cargo,salario) VALUES ('Ana','Dev',3000);
+```
+
+Esto cumple con el objetivo de la Tabla 11, ya que se presentan fragmentos del archivo `.l` y `.y`, se muestran las reglas léxicas para tokens SQL y se explican las producciones gramaticales junto con sus acciones semánticas.
