@@ -1,0 +1,38 @@
+-- ============================================================
+--  consultas.txt  —  Casos de prueba para el analizador SQL
+--  simplificado.  Ejecutar con:  ./sql < consultas.txt
+-- ============================================================
+
+-- ── CASOS VÁLIDOS ──────────────────────────────────────────
+
+-- Caso 1: Inserción en tabla empleados
+insertar en tabla empleados valores: nombre = 'Ana', cargo = 'dev', salario = 3000 fin;
+
+-- Caso 2: Inserción en tabla productos con booleano true
+insertar en tabla productos valores: nombre = 'Laptop', precio = 1500, activo = true fin;
+
+-- Caso 3: Inserción en tabla pedidos
+insertar en tabla pedidos valores: cliente = 'Luis', producto = 'Mouse', cantidad = 5 fin;
+
+-- Caso 4: Otro empleado
+insertar en tabla empleados valores: nombre = 'Bob', cargo = 'qa', salario = 2500 fin;
+
+-- Caso 5: Producto con booleano false
+insertar en tabla productos valores: nombre = 'Teclado', precio = 80, activo = false fin;
+
+-- Caso 6: Otro pedido
+insertar en tabla pedidos valores: cliente = 'Maria', producto = 'Hub', cantidad = 2 fin;
+
+-- Caso 7: Empleado con salario alto
+insertar en tabla empleados valores: nombre = 'Carlos', cargo = 'ops', salario = 2800 fin;
+
+-- ── CASOS DE ERROR ─────────────────────────────────────────
+
+-- Caso 8: Error léxico — cadena sin cerrar
+-- insertar en tabla empleados valores: nombre = 'sin cerrar fin;
+
+-- Caso 9: Error sintáctico — falta ':' después de valores
+insertar en tabla empleados valores nombre = 'Juan' fin;
+
+-- Caso 10: Error sintáctico — falta 'en'
+insertar tabla empleados valores: nombre = 'X' fin;
