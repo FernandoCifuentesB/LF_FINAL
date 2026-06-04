@@ -1353,17 +1353,7 @@ Los fragmentos seleccionados del archivo `.l` y del archivo `.y` son pertinentes
 
 ---
 
-## 11. Conclusión
 
-El proyecto implementa un analizador completo para reglas de acceso mediante la separación clásica entre análisis léxico y análisis sintáctico.
-
-El archivo `acceso.l` se encarga de identificar las unidades básicas del lenguaje, como palabras reservadas, operadores, números, cadenas y errores léxicos.
-
-El archivo `acceso.y` se encarga de validar que esas unidades aparezcan en un orden correcto, formando reglas válidas. Además, incorpora acciones semánticas para detectar errores de tipo, como comparar `hour` con una cadena en lugar de un número.
-
-Gracias a esta arquitectura, el analizador puede procesar múltiples reglas, reportar errores por línea, continuar después de encontrar errores y generar un resumen final con la cantidad de reglas válidas e inválidas.
-
----
 
 # Tabla 11: Código Flex y Bison para el analizador SQL simplificado
 
