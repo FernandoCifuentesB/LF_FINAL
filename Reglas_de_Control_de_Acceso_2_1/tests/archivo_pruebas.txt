@@ -1,0 +1,82 @@
+; ──────────────────────────────────────────────
+; BLOQUE 1: Reglas VÁLIDAS (15 reglas)
+; ──────────────────────────────────────────────
+
+; Regla 1 — Restricción horaria simple con >=
+user admin AND hour >= 9
+
+; Regla 2 — Franja horaria con doble condición AND
+user admin AND hour >= 9 AND hour <= 17
+
+; Regla 3 — Exclusión de recurso con NOT
+user guest AND NOT resource = 'config.xml'
+
+; Regla 4 — Restricción de día
+user operator AND day = 'Monday'
+
+; Regla 5 — Combinación de hora y día
+user admin AND hour >= 8 AND day = 'Friday'
+
+; Regla 6 — Acceso a recurso específico
+user operator AND resource = 'database.db'
+
+; Regla 7 — Exclusión de recurso con !=
+user guest AND resource != 'secrets.env'
+
+; Regla 8 — Triple condición AND
+user admin AND hour >= 6 AND hour <= 22 AND day = 'Saturday'
+
+; Regla 9 — Condición con OR
+user guest OR user operator AND resource = 'logs.txt'
+
+; Regla 10 — Operador menor que en hora
+user operator AND hour < 18
+
+; Regla 11 — Operador mayor que
+user admin AND hour > 7
+
+; Regla 12 — Restricción de día domingo con punto y coma
+user guest AND day = 'Sunday';
+
+; Regla 13 — Recurso con extensión de ruta
+user admin AND resource = 'etc/nginx/nginx.conf'
+
+; Regla 14 — Operador <= con recurso
+user operator AND hour <= 20 AND resource = 'reports.pdf'
+
+; Regla 15 — Combinación NOT + AND
+user admin AND NOT resource = 'root.key' AND hour >= 9
+
+; ──────────────────────────────────────────────
+; BLOQUE 2: Reglas INVÁLIDAS (10 reglas)
+; ──────────────────────────────────────────────
+
+; Regla 16 — ERROR: falta el rol después de 'user'
+user AND hour >= 9
+
+; Regla 17 — ERROR: rol inexistente 'superuser'
+user superuser AND hour >= 9
+
+; Regla 18 — ERROR: operador inválido '==' no definido
+user admin AND hour == 10
+
+; Regla 19 — ERROR: falta el valor numérico después del operador
+user operator AND hour >=
+
+; Regla 20 — ERROR: cadena sin cerrar comilla
+user guest AND resource = 'archivo_sin_cerrar
+
+; Regla 21 — ERROR: falta 'user' al inicio
+admin AND hour >= 9
+
+; Regla 22 — ERROR: operador de hora con cadena en vez de número
+user admin AND hour >= 'nueve'
+
+; Regla 23 — ERROR: doble NOT no soportado por la gramática
+user operator AND NOT NOT resource = 'data.csv'
+
+; Regla 24 — ERROR: condición incompleta falta valor
+user guest AND day =
+
+; Regla 25 — ERROR: token completamente desconocido '@'
+user admin AND @recurso = 'test.txt'

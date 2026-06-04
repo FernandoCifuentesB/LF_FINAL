@@ -1,0 +1,499 @@
+Terminals unused in grammar
+
+    TK_SEMICOLON
+    TK_ERROR
+
+
+State 8 conflicts: 1 shift/reduce
+
+
+Grammar
+
+    0 $accept: programa $end
+
+    1 programa: lineas
+
+    2 lineas: lineas linea
+    3       | %empty
+
+    4 linea: regla TK_EOL
+    5      | regla
+    6      | TK_EOL
+    7      | error TK_EOL
+
+    8 regla: sujeto condicion_lista
+
+    9 sujeto: TK_USER rol
+
+   10 rol: TK_ADMIN
+   11    | TK_GUEST
+   12    | TK_OPERATOR
+
+   13 condicion_lista: condicion_lista conector condicion
+   14                | conector condicion
+
+   15 conector: TK_AND
+   16         | TK_OR
+
+   17 condicion: condicion_simple
+   18          | TK_NOT condicion_simple
+   19          | sujeto
+
+   20 condicion_simple: TK_HOUR operador TK_NUMERO
+   21                 | TK_HOUR operador TK_CADENA
+   22                 | TK_HOUR operador TK_IDENT
+   23                 | TK_DAY TK_EQ TK_CADENA
+   24                 | TK_RESOURCE TK_EQ TK_CADENA
+   25                 | TK_RESOURCE TK_NEQ TK_CADENA
+
+   26 operador: TK_GEQ
+   27         | TK_LEQ
+   28         | TK_GT
+   29         | TK_LT
+   30         | TK_EQ
+
+
+Terminals, with rules where they appear
+
+    $end (0) 0
+    error (256) 7
+    TK_USER (258) 9
+    TK_ADMIN (259) 10
+    TK_GUEST (260) 11
+    TK_OPERATOR (261) 12
+    TK_AND (262) 15
+    TK_OR (263) 16
+    TK_NOT (264) 18
+    TK_HOUR (265) 20 21 22
+    TK_DAY (266) 23
+    TK_RESOURCE (267) 24 25
+    TK_EOL (268) 4 6 7
+    TK_SEMICOLON (269)
+    TK_GEQ (270) 26
+    TK_LEQ (271) 27
+    TK_GT (272) 28
+    TK_LT (273) 29
+    TK_EQ (274) 23 24 30
+    TK_NEQ (275) 25
+    TK_NUMERO <ival> (276) 20
+    TK_CADENA <sval> (277) 21 23 24 25
+    TK_IDENT <sval> (278) 22
+    TK_ERROR (279)
+
+
+Nonterminals, with rules where they appear
+
+    $accept (25)
+        on left: 0
+    programa (26)
+        on left: 1
+        on right: 0
+    lineas (27)
+        on left: 2 3
+        on right: 1 2
+    linea (28)
+        on left: 4 5 6 7
+        on right: 2
+    regla (29)
+        on left: 8
+        on right: 4 5
+    sujeto (30)
+        on left: 9
+        on right: 8 19
+    rol (31)
+        on left: 10 11 12
+        on right: 9
+    condicion_lista (32)
+        on left: 13 14
+        on right: 8 13
+    conector (33)
+        on left: 15 16
+        on right: 13 14
+    condicion (34)
+        on left: 17 18 19
+        on right: 13 14
+    condicion_simple (35)
+        on left: 20 21 22 23 24 25
+        on right: 17 18
+    operador (36)
+        on left: 26 27 28 29 30
+        on right: 20 21 22
+
+
+State 0
+
+    0 $accept: . programa $end
+
+    $default  reduce using rule 3 (lineas)
+
+    programa  go to state 1
+    lineas    go to state 2
+
+
+State 1
+
+    0 $accept: programa . $end
+
+    $end  shift, and go to state 3
+
+
+State 2
+
+    1 programa: lineas .
+    2 lineas: lineas . linea
+
+    error    shift, and go to state 4
+    TK_USER  shift, and go to state 5
+    TK_EOL   shift, and go to state 6
+
+    $end  reduce using rule 1 (programa)
+
+    linea   go to state 7
+    regla   go to state 8
+    sujeto  go to state 9
+
+
+State 3
+
+    0 $accept: programa $end .
+
+    $default  accept
+
+
+State 4
+
+    7 linea: error . TK_EOL
+
+    TK_EOL  shift, and go to state 10
+
+
+State 5
+
+    9 sujeto: TK_USER . rol
+
+    TK_ADMIN     shift, and go to state 11
+    TK_GUEST     shift, and go to state 12
+    TK_OPERATOR  shift, and go to state 13
+
+    rol  go to state 14
+
+
+State 6
+
+    6 linea: TK_EOL .
+
+    $default  reduce using rule 6 (linea)
+
+
+State 7
+
+    2 lineas: lineas linea .
+
+    $default  reduce using rule 2 (lineas)
+
+
+State 8
+
+    4 linea: regla . TK_EOL
+    5      | regla .
+
+    TK_EOL  shift, and go to state 15
+
+    TK_EOL    [reduce using rule 5 (linea)]
+    $default  reduce using rule 5 (linea)
+
+
+State 9
+
+    8 regla: sujeto . condicion_lista
+
+    TK_AND  shift, and go to state 16
+    TK_OR   shift, and go to state 17
+
+    condicion_lista  go to state 18
+    conector         go to state 19
+
+
+State 10
+
+    7 linea: error TK_EOL .
+
+    $default  reduce using rule 7 (linea)
+
+
+State 11
+
+   10 rol: TK_ADMIN .
+
+    $default  reduce using rule 10 (rol)
+
+
+State 12
+
+   11 rol: TK_GUEST .
+
+    $default  reduce using rule 11 (rol)
+
+
+State 13
+
+   12 rol: TK_OPERATOR .
+
+    $default  reduce using rule 12 (rol)
+
+
+State 14
+
+    9 sujeto: TK_USER rol .
+
+    $default  reduce using rule 9 (sujeto)
+
+
+State 15
+
+    4 linea: regla TK_EOL .
+
+    $default  reduce using rule 4 (linea)
+
+
+State 16
+
+   15 conector: TK_AND .
+
+    $default  reduce using rule 15 (conector)
+
+
+State 17
+
+   16 conector: TK_OR .
+
+    $default  reduce using rule 16 (conector)
+
+
+State 18
+
+    8 regla: sujeto condicion_lista .
+   13 condicion_lista: condicion_lista . conector condicion
+
+    TK_AND  shift, and go to state 16
+    TK_OR   shift, and go to state 17
+
+    $default  reduce using rule 8 (regla)
+
+    conector  go to state 20
+
+
+State 19
+
+   14 condicion_lista: conector . condicion
+
+    TK_USER      shift, and go to state 5
+    TK_NOT       shift, and go to state 21
+    TK_HOUR      shift, and go to state 22
+    TK_DAY       shift, and go to state 23
+    TK_RESOURCE  shift, and go to state 24
+
+    sujeto            go to state 25
+    condicion         go to state 26
+    condicion_simple  go to state 27
+
+
+State 20
+
+   13 condicion_lista: condicion_lista conector . condicion
+
+    TK_USER      shift, and go to state 5
+    TK_NOT       shift, and go to state 21
+    TK_HOUR      shift, and go to state 22
+    TK_DAY       shift, and go to state 23
+    TK_RESOURCE  shift, and go to state 24
+
+    sujeto            go to state 25
+    condicion         go to state 28
+    condicion_simple  go to state 27
+
+
+State 21
+
+   18 condicion: TK_NOT . condicion_simple
+
+    TK_HOUR      shift, and go to state 22
+    TK_DAY       shift, and go to state 23
+    TK_RESOURCE  shift, and go to state 24
+
+    condicion_simple  go to state 29
+
+
+State 22
+
+   20 condicion_simple: TK_HOUR . operador TK_NUMERO
+   21                 | TK_HOUR . operador TK_CADENA
+   22                 | TK_HOUR . operador TK_IDENT
+
+    TK_GEQ  shift, and go to state 30
+    TK_LEQ  shift, and go to state 31
+    TK_GT   shift, and go to state 32
+    TK_LT   shift, and go to state 33
+    TK_EQ   shift, and go to state 34
+
+    operador  go to state 35
+
+
+State 23
+
+   23 condicion_simple: TK_DAY . TK_EQ TK_CADENA
+
+    TK_EQ  shift, and go to state 36
+
+
+State 24
+
+   24 condicion_simple: TK_RESOURCE . TK_EQ TK_CADENA
+   25                 | TK_RESOURCE . TK_NEQ TK_CADENA
+
+    TK_EQ   shift, and go to state 37
+    TK_NEQ  shift, and go to state 38
+
+
+State 25
+
+   19 condicion: sujeto .
+
+    $default  reduce using rule 19 (condicion)
+
+
+State 26
+
+   14 condicion_lista: conector condicion .
+
+    $default  reduce using rule 14 (condicion_lista)
+
+
+State 27
+
+   17 condicion: condicion_simple .
+
+    $default  reduce using rule 17 (condicion)
+
+
+State 28
+
+   13 condicion_lista: condicion_lista conector condicion .
+
+    $default  reduce using rule 13 (condicion_lista)
+
+
+State 29
+
+   18 condicion: TK_NOT condicion_simple .
+
+    $default  reduce using rule 18 (condicion)
+
+
+State 30
+
+   26 operador: TK_GEQ .
+
+    $default  reduce using rule 26 (operador)
+
+
+State 31
+
+   27 operador: TK_LEQ .
+
+    $default  reduce using rule 27 (operador)
+
+
+State 32
+
+   28 operador: TK_GT .
+
+    $default  reduce using rule 28 (operador)
+
+
+State 33
+
+   29 operador: TK_LT .
+
+    $default  reduce using rule 29 (operador)
+
+
+State 34
+
+   30 operador: TK_EQ .
+
+    $default  reduce using rule 30 (operador)
+
+
+State 35
+
+   20 condicion_simple: TK_HOUR operador . TK_NUMERO
+   21                 | TK_HOUR operador . TK_CADENA
+   22                 | TK_HOUR operador . TK_IDENT
+
+    TK_NUMERO  shift, and go to state 39
+    TK_CADENA  shift, and go to state 40
+    TK_IDENT   shift, and go to state 41
+
+
+State 36
+
+   23 condicion_simple: TK_DAY TK_EQ . TK_CADENA
+
+    TK_CADENA  shift, and go to state 42
+
+
+State 37
+
+   24 condicion_simple: TK_RESOURCE TK_EQ . TK_CADENA
+
+    TK_CADENA  shift, and go to state 43
+
+
+State 38
+
+   25 condicion_simple: TK_RESOURCE TK_NEQ . TK_CADENA
+
+    TK_CADENA  shift, and go to state 44
+
+
+State 39
+
+   20 condicion_simple: TK_HOUR operador TK_NUMERO .
+
+    $default  reduce using rule 20 (condicion_simple)
+
+
+State 40
+
+   21 condicion_simple: TK_HOUR operador TK_CADENA .
+
+    $default  reduce using rule 21 (condicion_simple)
+
+
+State 41
+
+   22 condicion_simple: TK_HOUR operador TK_IDENT .
+
+    $default  reduce using rule 22 (condicion_simple)
+
+
+State 42
+
+   23 condicion_simple: TK_DAY TK_EQ TK_CADENA .
+
+    $default  reduce using rule 23 (condicion_simple)
+
+
+State 43
+
+   24 condicion_simple: TK_RESOURCE TK_EQ TK_CADENA .
+
+    $default  reduce using rule 24 (condicion_simple)
+
+
+State 44
+
+   25 condicion_simple: TK_RESOURCE TK_NEQ TK_CADENA .
+
+    $default  reduce using rule 25 (condicion_simple)
